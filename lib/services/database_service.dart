@@ -68,7 +68,7 @@ class DatabaseService {
         'name': 'Makina dorman pss',
         'category': 'Makina',
         'quantity': 10,
-        'status': 'In Stock',
+        'status': 'Low Stock',
         'lastUpdated': DateTime(2024, 4, 24).toIso8601String(),
       },
       {
@@ -88,8 +88,8 @@ class DatabaseService {
       {
         'name': 'Steel 4c black',
         'category': 'Other',
-        'quantity': 200,
-        'status': 'In Stock',
+        'quantity': 0,
+        'status': 'Out of Stock',
         'lastUpdated': DateTime(2024, 4, 21).toIso8601String(),
       },
       {
@@ -102,16 +102,23 @@ class DatabaseService {
       {
         'name': 'Keilon dorman pss',
         'category': 'Steel',
-        'quantity': 100,
-        'status': 'In Stock',
+        'quantity': 0,
+        'status': 'Out of Stock',
         'lastUpdated': DateTime(2024, 4, 20).toIso8601String(),
       },
       {
         'name': 'Hapja dorman pss',
         'category': 'Other',
-        'quantity': 30,
-        'status': 'In Stock',
+        'quantity': 5,
+        'status': 'Low Stock',
         'lastUpdated': DateTime(2024, 4, 20).toIso8601String(),
+      },
+      {
+        'name': 'Premium Steel Rod',
+        'category': 'Steel',
+        'quantity': 0,
+        'status': 'Out of Stock',
+        'lastUpdated': DateTime(2024, 4, 19).toIso8601String(),
       },
     ];
 
@@ -198,10 +205,22 @@ class DatabaseService {
   // Update product quantity
   Future<int> updateProductQuantity(int id, int newQuantity) async {
     final db = await database;
+
+    // Automatically update status based on quantity
+    String newStatus;
+    if (newQuantity <= 0) {
+      newStatus = 'Out of Stock';
+    } else if (newQuantity <= 10) {
+      newStatus = 'Low Stock';
+    } else {
+      newStatus = 'In Stock';
+    }
+
     return await db.update(
       _tableName,
       {
         'quantity': newQuantity,
+        'status': newStatus,
         'lastUpdated': DateTime.now().toIso8601String(),
       },
       where: 'id = ?',
@@ -247,19 +266,48 @@ class DatabaseService {
     return Sqflite.firstIntValue(result) ?? 0;
   }
 
-  // Get low stock products (quantity < 50)
+  // Get low stock products (quantity <= 10)
   Future<List<Product>> getLowStockProducts() async {
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.query(
       _tableName,
-      where: 'quantity < ?',
-      whereArgs: [50],
+      where: 'quantity <= ?',
+      whereArgs: [10],
       orderBy: 'quantity ASC',
     );
 
     return List.generate(maps.length, (i) {
       return Product.fromMap(maps[i]);
     });
+  }
+
+  // Recalculate all product statuses based on current quantity
+  Future<void> recalculateAllStatuses() async {
+    final db = await database;
+    final products = await getAllProducts();
+
+    for (final product in products) {
+      String newStatus;
+      if (product.quantity <= 0) {
+        newStatus = 'Out of Stock';
+      } else if (product.quantity <= 10) {
+        newStatus = 'Low Stock';
+      } else {
+        newStatus = 'In Stock';
+      }
+
+      if (newStatus != product.status) {
+        await db.update(
+          _tableName,
+          {
+            'status': newStatus,
+            'lastUpdated': DateTime.now().toIso8601String(),
+          },
+          where: 'id = ?',
+          whereArgs: [product.id],
+        );
+      }
+    }
   }
 
   // Close database

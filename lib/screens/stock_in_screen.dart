@@ -17,6 +17,8 @@ class _StockInScreenState extends State<StockInScreen> {
   List<Product> _products = [];
   List<Product> _filteredProducts = [];
   bool _isLoading = true;
+  String _selectedFilter =
+      'All'; // Filter options: All, Low Stock First, High Stock First
 
   @override
   void initState() {
@@ -40,9 +42,10 @@ class _StockInScreenState extends State<StockInScreen> {
       final products = await _databaseService.getAllProducts();
       setState(() {
         _products = products;
-        _filteredProducts = products;
         _isLoading = false;
       });
+      // Reapply current filters after loading
+      _filterProducts();
     } catch (e) {
       setState(() {
         _isLoading = false;
@@ -57,11 +60,36 @@ class _StockInScreenState extends State<StockInScreen> {
 
   void _filterProducts() {
     final query = _searchController.text.toLowerCase();
+    List<Product> filtered = _products.where((product) {
+      return product.name.toLowerCase().contains(query);
+    }).toList();
+
+    // Apply sorting filter
+    _applySortFilter(filtered);
+  }
+
+  void _applySortFilter(List<Product> products) {
     setState(() {
-      _filteredProducts = _products.where((product) {
-        return product.name.toLowerCase().contains(query);
-      }).toList();
+      switch (_selectedFilter) {
+        case 'Low Stock First':
+          _filteredProducts = products
+            ..sort((a, b) => a.quantity.compareTo(b.quantity));
+          break;
+        case 'High Stock First':
+          _filteredProducts = products
+            ..sort((a, b) => b.quantity.compareTo(a.quantity));
+          break;
+        default:
+          _filteredProducts = products;
+      }
     });
+  }
+
+  void _changeFilter(String filter) {
+    setState(() {
+      _selectedFilter = filter;
+    });
+    _filterProducts();
   }
 
   Future<void> _showAddProductDialog() async {
@@ -99,13 +127,48 @@ class _StockInScreenState extends State<StockInScreen> {
 
     try {
       await _databaseService.updateProductQuantity(product.id!, newQuantity);
-      await _loadProducts();
+
+      // Update the product in our local lists without reloading everything
+      setState(() {
+        // Update in main products list
+        final productIndex = _products.indexWhere((p) => p.id == product.id);
+        if (productIndex != -1) {
+          _products[productIndex] = _products[productIndex].copyWith(
+            quantity: newQuantity,
+            status: _getNewStatus(newQuantity),
+            lastUpdated: DateTime.now(),
+          );
+        }
+
+        // Update in filtered products list
+        final filteredIndex =
+            _filteredProducts.indexWhere((p) => p.id == product.id);
+        if (filteredIndex != -1) {
+          _filteredProducts[filteredIndex] =
+              _filteredProducts[filteredIndex].copyWith(
+            quantity: newQuantity,
+            status: _getNewStatus(newQuantity),
+            lastUpdated: DateTime.now(),
+          );
+        }
+      });
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error updating quantity: $e')),
         );
       }
+    }
+  }
+
+  // Helper method to determine status based on quantity
+  String _getNewStatus(int quantity) {
+    if (quantity <= 0) {
+      return 'Out of Stock';
+    } else if (quantity <= 10) {
+      return 'Low Stock';
+    } else {
+      return 'In Stock';
     }
   }
 
@@ -132,7 +195,13 @@ class _StockInScreenState extends State<StockInScreen> {
     if (confirm == true) {
       try {
         await _databaseService.deleteProduct(product.id!);
-        await _loadProducts();
+
+        // Remove the product from our local lists without reloading everything
+        setState(() {
+          _products.removeWhere((p) => p.id == product.id);
+          _filteredProducts.removeWhere((p) => p.id == product.id);
+        });
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Product deleted successfully')),
@@ -142,6 +211,244 @@ class _StockInScreenState extends State<StockInScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Error deleting product: $e')),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _showProductUpdateDialog(Product product) async {
+    final TextEditingController nameController =
+        TextEditingController(text: product.name);
+    final TextEditingController quantityController =
+        TextEditingController(text: product.quantity.toString());
+    String selectedCategory = product.category;
+    String selectedStatus = product.status;
+
+    final List<String> categories = ['Makina', 'Steel', 'Other'];
+    final List<String> statuses = ['In Stock', 'Low Stock', 'Out of Stock'];
+
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => Dialog(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          child: Container(
+            width: 500,
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Update Product',
+                      style:
+                          TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+
+                // Product Name Field
+                TextField(
+                  controller: nameController,
+                  decoration: InputDecoration(
+                    labelText: 'Product Name',
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8)),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Color(0xFF4A90E2)),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Category Dropdown
+                DropdownButtonFormField<String>(
+                  value: selectedCategory,
+                  decoration: InputDecoration(
+                    labelText: 'Category',
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8)),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Color(0xFF4A90E2)),
+                    ),
+                  ),
+                  items: categories.map((category) {
+                    return DropdownMenuItem(
+                        value: category, child: Text(category));
+                  }).toList(),
+                  onChanged: (value) {
+                    setDialogState(() {
+                      selectedCategory = value!;
+                    });
+                  },
+                ),
+                const SizedBox(height: 16),
+
+                // Quantity Field with Quick Actions
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: quantityController,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          labelText: 'Quantity',
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8)),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide:
+                                const BorderSide(color: Color(0xFF4A90E2)),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // Quick quantity adjustment buttons
+                    Column(
+                      children: [
+                        IconButton(
+                          onPressed: () {
+                            final currentValue =
+                                int.tryParse(quantityController.text) ?? 0;
+                            quantityController.text =
+                                (currentValue + 10).toString();
+                          },
+                          icon:
+                              const Icon(Icons.add_circle, color: Colors.green),
+                          tooltip: '+10',
+                        ),
+                        IconButton(
+                          onPressed: () {
+                            final currentValue =
+                                int.tryParse(quantityController.text) ?? 0;
+                            final newValue = (currentValue - 10)
+                                .clamp(0, double.infinity)
+                                .toInt();
+                            quantityController.text = newValue.toString();
+                          },
+                          icon: const Icon(Icons.remove_circle,
+                              color: Colors.red),
+                          tooltip: '-10',
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // Status Dropdown
+                DropdownButtonFormField<String>(
+                  value: selectedStatus,
+                  decoration: InputDecoration(
+                    labelText: 'Status',
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8)),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Color(0xFF4A90E2)),
+                    ),
+                  ),
+                  items: statuses.map((status) {
+                    return DropdownMenuItem(value: status, child: Text(status));
+                  }).toList(),
+                  onChanged: (value) {
+                    setDialogState(() {
+                      selectedStatus = value!;
+                    });
+                  },
+                ),
+                const SizedBox(height: 32),
+
+                // Action Buttons
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('Cancel',
+                          style: TextStyle(color: Colors.grey)),
+                    ),
+                    const SizedBox(width: 16),
+                    ElevatedButton(
+                      onPressed: () {
+                        final updatedData = {
+                          'name': nameController.text.trim(),
+                          'category': selectedCategory,
+                          'quantity':
+                              int.tryParse(quantityController.text) ?? 0,
+                          'status': selectedStatus,
+                        };
+                        Navigator.of(context).pop(updatedData);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF4A90E2),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 24, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8)),
+                      ),
+                      child: const Text('Update Product'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    if (result != null) {
+      try {
+        final updatedProduct = product.copyWith(
+          name: result['name'],
+          category: result['category'],
+          quantity: result['quantity'],
+          status: result['status'],
+          lastUpdated: DateTime.now(),
+        );
+
+        await _databaseService.updateProduct(updatedProduct);
+
+        // Update the product in our local lists without reloading everything
+        setState(() {
+          // Update in main products list
+          final productIndex = _products.indexWhere((p) => p.id == product.id);
+          if (productIndex != -1) {
+            _products[productIndex] = updatedProduct;
+          }
+
+          // Update in filtered products list
+          final filteredIndex =
+              _filteredProducts.indexWhere((p) => p.id == product.id);
+          if (filteredIndex != -1) {
+            _filteredProducts[filteredIndex] = updatedProduct;
+          }
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Product updated successfully')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error updating product: $e')),
           );
         }
       }
@@ -213,27 +520,62 @@ class _StockInScreenState extends State<StockInScreen> {
               ],
             ),
           ),
-          // Search Bar
+          // Search Bar and Filter
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(24.0),
             color: Colors.white,
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'Search...',
-                prefixIcon: const Icon(Icons.search, color: Colors.grey),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: Colors.grey[300]!),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: 'Search...',
+                      prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Color(0xFF4A90E2)),
+                      ),
+                      filled: true,
+                      fillColor: Colors.grey[50],
+                    ),
+                  ),
                 ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: Color(0xFF4A90E2)),
+                const SizedBox(width: 16),
+                // Filter Dropdown
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey[300]!),
+                    borderRadius: BorderRadius.circular(8),
+                    color: Colors.grey[50],
+                  ),
+                  child: DropdownButton<String>(
+                    value: _selectedFilter,
+                    icon:
+                        const Icon(Icons.filter_list, color: Color(0xFF4A90E2)),
+                    underline: Container(),
+                    hint: const Text('Filter'),
+                    items: ['All', 'Low Stock First', 'High Stock First']
+                        .map((String value) {
+                      return DropdownMenuItem<String>(
+                        value: value,
+                        child: Text(value),
+                      );
+                    }).toList(),
+                    onChanged: (String? newValue) {
+                      if (newValue != null) {
+                        _changeFilter(newValue);
+                      }
+                    },
+                  ),
                 ),
-                filled: true,
-                fillColor: Colors.grey[50],
-              ),
+              ],
             ),
           ),
           // Product List
@@ -343,108 +685,158 @@ class _StockInScreenState extends State<StockInScreen> {
                                 itemCount: _filteredProducts.length,
                                 itemBuilder: (context, index) {
                                   final product = _filteredProducts[index];
-                                  return Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 24,
-                                      vertical: 12,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      border: Border(
-                                        bottom: BorderSide(
-                                          color: Colors.grey[200]!,
-                                          width: 1,
-                                        ),
+                                  final isLowStock = product.quantity <= 5;
+
+                                  return InkWell(
+                                    onTap: () =>
+                                        _showProductUpdateDialog(product),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 24,
+                                        vertical: 12,
                                       ),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Expanded(
-                                          flex: 3,
-                                          child: Text(
-                                            product.name,
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.w500,
+                                      decoration: BoxDecoration(
+                                        color: isLowStock
+                                            ? Colors.red.shade50
+                                            : null,
+                                        border: Border(
+                                          bottom: BorderSide(
+                                            color: Colors.grey[200]!,
+                                            width: 1,
+                                          ),
+                                        ),
+                                        borderRadius: isLowStock
+                                            ? BorderRadius.circular(8)
+                                            : null,
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Expanded(
+                                            flex: 3,
+                                            child: Row(
+                                              children: [
+                                                // Warning icon for low stock
+                                                if (isLowStock) ...[
+                                                  Icon(
+                                                    Icons.warning,
+                                                    color: Colors.red.shade300,
+                                                    size: 16,
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                ],
+                                                Expanded(
+                                                  child: Text(
+                                                    product.name,
+                                                    style: TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.w500,
+                                                      color: isLowStock
+                                                          ? Colors.red.shade700
+                                                          : null,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
                                             ),
                                           ),
-                                        ),
-                                        Expanded(
-                                          flex: 2,
-                                          child: Text(product.category),
-                                        ),
-                                        Expanded(
-                                          flex: 1,
-                                          child: Text(
-                                            product.quantity.toString(),
-                                            textAlign: TextAlign.center,
+                                          Expanded(
+                                            flex: 2,
+                                            child: Text(
+                                              product.category,
+                                              style: TextStyle(
+                                                color: isLowStock
+                                                    ? Colors.red.shade600
+                                                    : null,
+                                              ),
+                                            ),
                                           ),
-                                        ),
-                                        Expanded(
-                                          flex: 1,
-                                          child: Container(
-                                            alignment: Alignment.center,
+                                          Expanded(
+                                            flex: 1,
+                                            child: Text(
+                                              product.quantity.toString(),
+                                              textAlign: TextAlign.center,
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                                color: isLowStock
+                                                    ? Colors.red.shade700
+                                                    : null,
+                                              ),
+                                            ),
+                                          ),
+                                          Expanded(
+                                            flex: 1,
                                             child: Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                horizontal: 8,
-                                                vertical: 4,
-                                              ),
-                                              decoration: BoxDecoration(
-                                                color: _getStatusColor(
-                                                    product.status),
-                                                borderRadius:
-                                                    BorderRadius.circular(12),
-                                              ),
-                                              child: Text(
-                                                product.status,
-                                                style: const TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w500,
+                                              alignment: Alignment.center,
+                                              child: Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                  horizontal: 8,
+                                                  vertical: 4,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: _getStatusColor(
+                                                      product.status),
+                                                  borderRadius:
+                                                      BorderRadius.circular(12),
+                                                ),
+                                                child: Text(
+                                                  product.status,
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
                                                 ),
                                               ),
                                             ),
                                           ),
-                                        ),
-                                        Expanded(
-                                          flex: 2,
-                                          child: Text(
-                                            DateFormat('yyyy-MM-dd')
-                                                .format(product.lastUpdated),
-                                            textAlign: TextAlign.center,
+                                          Expanded(
+                                            flex: 2,
+                                            child: Text(
+                                              DateFormat('yyyy-MM-dd')
+                                                  .format(product.lastUpdated),
+                                              textAlign: TextAlign.center,
+                                              style: TextStyle(
+                                                color: isLowStock
+                                                    ? Colors.red.shade600
+                                                    : null,
+                                              ),
+                                            ),
                                           ),
-                                        ),
-                                        SizedBox(
-                                          width: 120,
-                                          child: Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.end,
-                                            children: [
-                                              IconButton(
-                                                onPressed: () =>
-                                                    _updateQuantity(product, 1),
-                                                icon: const Icon(Icons.add,
-                                                    color: Colors.green),
-                                                tooltip: 'Increase quantity',
-                                              ),
-                                              IconButton(
-                                                onPressed: () =>
-                                                    _updateQuantity(
-                                                        product, -1),
-                                                icon: const Icon(Icons.remove,
-                                                    color: Colors.orange),
-                                                tooltip: 'Decrease quantity',
-                                              ),
-                                              IconButton(
-                                                onPressed: () =>
-                                                    _deleteProduct(product),
-                                                icon: const Icon(Icons.close,
-                                                    color: Colors.red),
-                                                tooltip: 'Delete product',
-                                              ),
-                                            ],
+                                          SizedBox(
+                                            width: 120,
+                                            child: Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.end,
+                                              children: [
+                                                IconButton(
+                                                  onPressed: () =>
+                                                      _updateQuantity(
+                                                          product, 1),
+                                                  icon: const Icon(Icons.add,
+                                                      color: Colors.green),
+                                                  tooltip: 'Increase quantity',
+                                                ),
+                                                IconButton(
+                                                  onPressed: () =>
+                                                      _updateQuantity(
+                                                          product, -1),
+                                                  icon: const Icon(Icons.remove,
+                                                      color: Colors.orange),
+                                                  tooltip: 'Decrease quantity',
+                                                ),
+                                                IconButton(
+                                                  onPressed: () =>
+                                                      _deleteProduct(product),
+                                                  icon: const Icon(Icons.close,
+                                                      color: Colors.red),
+                                                  tooltip: 'Delete product',
+                                                ),
+                                              ],
+                                            ),
                                           ),
-                                        ),
-                                      ],
+                                        ],
+                                      ),
                                     ),
                                   );
                                 },

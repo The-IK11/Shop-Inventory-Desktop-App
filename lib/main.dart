@@ -8,6 +8,10 @@ void main() async {
   // Initialize database service for desktop platforms
   await DatabaseService.initialize();
 
+  // Recalculate all product statuses to ensure consistency
+  final databaseService = DatabaseService();
+  await databaseService.recalculateAllStatuses();
+
   runApp(const MyApp());
 }
 
