@@ -15,13 +15,19 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 1; // Start with Stock In screen
 
-  final List<Widget> _screens = [
-    const DashboardScreen(),
-    const StockInScreen(),
-    const StockOutScreen(),
-    const ReportsScreen(),
-    const SettingsScreen(),
-  ];
+  List<Widget> get _screens => [
+        DashboardScreen(onNavigate: _navigateToScreen),
+        const StockInScreen(),
+        const StockOutScreen(),
+        const ReportsScreen(),
+        const SettingsScreen(),
+      ];
+
+  void _navigateToScreen(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
 
   final List<NavigationItem> _navigationItems = [
     NavigationItem(

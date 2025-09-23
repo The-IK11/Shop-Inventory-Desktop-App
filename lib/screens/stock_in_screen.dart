@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/product.dart';
 import '../services/database_service.dart';
+import '../services/settings_service.dart';
 import '../widgets/add_product_dialog.dart';
 
 class StockInScreen extends StatefulWidget {
@@ -19,12 +20,22 @@ class _StockInScreenState extends State<StockInScreen> {
   bool _isLoading = true;
   String _selectedFilter =
       'All'; // Filter options: All, Low Stock First, High Stock First
+  int _lowStockThreshold =
+      10; // Default threshold, will be loaded from settings
 
   @override
   void initState() {
     super.initState();
+    _loadThreshold();
     _loadProducts();
     _searchController.addListener(_filterProducts);
+  }
+
+  Future<void> _loadThreshold() async {
+    final threshold = await SettingsService.getLowStockThreshold();
+    setState(() {
+      _lowStockThreshold = threshold;
+    });
   }
 
   @override
@@ -165,7 +176,7 @@ class _StockInScreenState extends State<StockInScreen> {
   String _getNewStatus(int quantity) {
     if (quantity <= 0) {
       return 'Out of Stock';
-    } else if (quantity <= 10) {
+    } else if (quantity <= _lowStockThreshold) {
       return 'Low Stock';
     } else {
       return 'In Stock';
@@ -685,7 +696,8 @@ class _StockInScreenState extends State<StockInScreen> {
                                 itemCount: _filteredProducts.length,
                                 itemBuilder: (context, index) {
                                   final product = _filteredProducts[index];
-                                  final isLowStock = product.quantity <= 5;
+                                  final isLowStock =
+                                      product.quantity <= _lowStockThreshold;
 
                                   return InkWell(
                                     onTap: () =>
@@ -775,12 +787,14 @@ class _StockInScreenState extends State<StockInScreen> {
                                                 ),
                                                 decoration: BoxDecoration(
                                                   color: _getStatusColor(
-                                                      product.status),
+                                                      _getNewStatus(
+                                                          product.quantity)),
                                                   borderRadius:
                                                       BorderRadius.circular(12),
                                                 ),
                                                 child: Text(
-                                                  product.status,
+                                                  _getNewStatus(
+                                                      product.quantity),
                                                   style: const TextStyle(
                                                     color: Colors.white,
                                                     fontSize: 12,
