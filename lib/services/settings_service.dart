@@ -6,9 +6,12 @@ class SettingsService {
   static const String _notificationsKey = 'notifications_enabled';
   static const String _lowStockThresholdKey = 'low_stock_threshold';
   static const String _categoriesKey = 'categories';
+  static const String _notificationReminderKey =
+      'notification_reminder_interval';
 
   static const String defaultShopName = 'Shop Inventory';
   static const int defaultLowStockThreshold = 10;
+  static const String defaultNotificationReminder = 'Daily';
 
   // Shop Name
   static Future<String> getShopName() async {
@@ -77,5 +80,17 @@ class SettingsService {
     final categories = await getCategories();
     categories.remove(category);
     await setCategories(categories);
+  }
+
+  // Notification Reminder Interval
+  static Future<String> getNotificationReminderInterval() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_notificationReminderKey) ??
+        defaultNotificationReminder;
+  }
+
+  static Future<void> setNotificationReminderInterval(String interval) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_notificationReminderKey, interval);
   }
 }

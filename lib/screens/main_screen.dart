@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'stock_in_screen.dart';
 import 'dashboard_screen.dart';
 import 'stock_out_screen.dart';
 import 'reports_screen.dart';
+import 'soldout_history_screen.dart';
 import 'settings_screen.dart';
+import '../services/settings_service.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -14,16 +17,62 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 1; // Start with Stock In screen
+  String _shopName = 'Shop Inventory'; // Default name
+  Timer? _refreshTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadShopName();
+    // Refresh shop name every 2 seconds to catch changes from settings
+    _refreshTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
+      _loadShopName();
+    });
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Refresh shop name when dependencies change
+    _loadShopName();
+  }
+
+  Future<void> _loadShopName() async {
+    try {
+      final shopName = await SettingsService.getShopName();
+      setState(() {
+        _shopName = shopName;
+      });
+    } catch (e) {
+      // Keep default name if error occurs
+      setState(() {
+        _shopName = 'Shop Inventory';
+      });
+    }
+  }
 
   List<Widget> get _screens => [
         DashboardScreen(onNavigate: _navigateToScreen),
         const StockInScreen(),
         const StockOutScreen(),
         const ReportsScreen(),
+        const SoldoutHistoryScreen(),
         const SettingsScreen(),
       ];
 
   void _navigateToScreen(int index) {
+    // Refresh shop name when leaving settings
+    if (_selectedIndex == 5 && index != 5) {
+      // Leaving settings screen
+      _loadShopName();
+    }
+
     setState(() {
       _selectedIndex = index;
     });
@@ -51,6 +100,11 @@ class _MainScreenState extends State<MainScreen> {
       route: '/reports',
     ),
     NavigationItem(
+      icon: Icons.history,
+      label: 'Soldout History',
+      route: '/soldout-history',
+    ),
+    NavigationItem(
       icon: Icons.settings,
       label: 'Settings',
       route: '/settings',
@@ -65,21 +119,21 @@ class _MainScreenState extends State<MainScreen> {
           // Sidebar Navigation
           Container(
             width: 250,
-            color: const Color(0xFFF5F5F5),
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
             child: Column(
               children: [
                 // Header
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(20.0),
-                  color: const Color(0xFF4A90E2),
-                  child: const Column(
+                  color: Theme.of(context).colorScheme.primary,
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Shop Inventory',
+                        _shopName,
                         style: TextStyle(
-                          color: Colors.white,
+                          color: Theme.of(context).colorScheme.onPrimary,
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
                         ),
@@ -105,23 +159,29 @@ class _MainScreenState extends State<MainScreen> {
                           leading: Icon(
                             item.icon,
                             color: isSelected
-                                ? const Color(0xFF4A90E2)
-                                : Colors.grey[600],
+                                ? Theme.of(context).colorScheme.primary
+                                : Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant,
                           ),
                           title: Text(
                             item.label,
                             style: TextStyle(
                               color: isSelected
-                                  ? const Color(0xFF4A90E2)
-                                  : Colors.grey[700],
+                                  ? Theme.of(context).colorScheme.primary
+                                  : Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant,
                               fontWeight: isSelected
                                   ? FontWeight.w600
                                   : FontWeight.normal,
                             ),
                           ),
                           selected: isSelected,
-                          selectedTileColor:
-                              const Color(0xFF4A90E2).withOpacity(0.1),
+                          selectedTileColor: Theme.of(context)
+                              .colorScheme
+                              .primary
+                              .withOpacity(0.1),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),

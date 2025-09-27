@@ -16,6 +16,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String _shopName = SettingsService.defaultShopName;
   bool _isDarkTheme = false;
   bool _notificationsEnabled = true;
+  String _notificationReminderInterval =
+      SettingsService.defaultNotificationReminder;
   int _lowStockThreshold = SettingsService.defaultLowStockThreshold;
   List<String> _categories = [];
 
@@ -37,6 +39,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final isDarkTheme = await SettingsService.isDarkTheme();
       final notificationsEnabled =
           await SettingsService.areNotificationsEnabled();
+      final notificationReminderInterval =
+          await SettingsService.getNotificationReminderInterval();
       final lowStockThreshold = await SettingsService.getLowStockThreshold();
       final categories = await SettingsService.getCategories();
 
@@ -44,6 +48,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _shopName = shopName;
         _isDarkTheme = isDarkTheme;
         _notificationsEnabled = notificationsEnabled;
+        _notificationReminderInterval = notificationReminderInterval;
         _lowStockThreshold = lowStockThreshold;
         _categories = categories;
         _isLoading = false;
@@ -63,7 +68,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: Theme.of(context).colorScheme.surface,
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
@@ -77,7 +82,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     style: TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
-                      color: Colors.black87,
                     ),
                   ),
                   const SizedBox(height: 32),
@@ -91,6 +95,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       _buildThemeSetting(),
                       const SizedBox(height: 16),
                       _buildNotificationSetting(),
+                      if (_notificationsEnabled) ...[
+                        const SizedBox(height: 8),
+                        _buildNotificationReminderSetting(),
+                      ],
                     ],
                   ),
                   const SizedBox(height: 32),
@@ -104,15 +112,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       _buildCategoryManagement(),
                     ],
                   ),
-                  const SizedBox(height: 32),
+                  // const SizedBox(height: 32),
 
-                  // Notification Testing Section
-                  _buildSection(
-                    title: 'Notification Testing',
-                    children: [
-                      _buildTestNotificationButton(),
-                    ],
-                  ),
+                  // // Notification Testing Section
+                  // _buildSection(
+                  //   title: 'Notification Testing',
+                  //   children: [
+                  //     _buildTestNotificationButton(),
+                  //   ],
+                  // ),
                   const SizedBox(height: 32),
 
                   // Data Management Section
@@ -133,11 +141,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Theme.of(context).colorScheme.shadow.withOpacity(0.1),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -151,7 +159,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w600,
-              color: Colors.black87,
             ),
           ),
           const SizedBox(height: 20),
@@ -164,7 +171,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _buildShopNameSetting() {
     return ListTile(
       contentPadding: EdgeInsets.zero,
-      leading: const Icon(Icons.store, color: Color(0xFF4A90E2)),
+      leading: Icon(Icons.store, color: Theme.of(context).colorScheme.primary),
       title: const Text('Shop Name'),
       subtitle: Text(_shopName),
       trailing: IconButton(
@@ -179,14 +186,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
       contentPadding: EdgeInsets.zero,
       leading: Icon(
         _isDarkTheme ? Icons.dark_mode : Icons.light_mode,
-        color: const Color(0xFF4A90E2),
+        color: Theme.of(context).colorScheme.primary,
       ),
       title: const Text('Theme'),
       subtitle: Text(_isDarkTheme ? 'Dark Theme' : 'Light Theme'),
       trailing: Switch(
         value: _isDarkTheme,
         onChanged: _toggleTheme,
-        activeColor: const Color(0xFF4A90E2),
+        activeColor: Theme.of(context).colorScheme.primary,
       ),
     );
   }
@@ -196,14 +203,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
       contentPadding: EdgeInsets.zero,
       leading: Icon(
         _notificationsEnabled ? Icons.notifications : Icons.notifications_off,
-        color: const Color(0xFF4A90E2),
+        color: Theme.of(context).colorScheme.primary,
       ),
       title: const Text('Notifications'),
       subtitle: Text(_notificationsEnabled ? 'Enabled' : 'Disabled'),
       trailing: Switch(
         value: _notificationsEnabled,
         onChanged: _toggleNotifications,
-        activeColor: const Color(0xFF4A90E2),
+        activeColor: Theme.of(context).colorScheme.primary,
+      ),
+    );
+  }
+
+  Widget _buildNotificationReminderSetting() {
+    return Padding(
+      padding: const EdgeInsets.only(left: 40),
+      child: ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: Icon(Icons.schedule,
+            color: Theme.of(context).colorScheme.primary, size: 20),
+        title: const Text('Reminder Frequency', style: TextStyle(fontSize: 14)),
+        subtitle: Text(_notificationReminderInterval,
+            style: const TextStyle(fontSize: 12)),
+        trailing: DropdownButton<String>(
+          value: _notificationReminderInterval,
+          underline: Container(),
+          items: const [
+            DropdownMenuItem(value: '15 Minutes', child: Text('15 Minutes')),
+            DropdownMenuItem(value: '1 Hour', child: Text('1 Hour')),
+            DropdownMenuItem(value: 'Daily', child: Text('Daily')),
+            DropdownMenuItem(value: 'Weekly', child: Text('Weekly')),
+          ],
+          onChanged: _onNotificationReminderChanged,
+        ),
       ),
     );
   }
@@ -275,19 +307,46 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildTestNotificationButton() {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: const Icon(Icons.notifications_active, color: Color(0xFF4A90E2)),
-      title: const Text('Test Notifications'),
-      subtitle: const Text('Send a test notification to verify functionality'),
-      trailing: ElevatedButton(
-        onPressed: _testNotifications,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF4A90E2),
-          foregroundColor: Colors.white,
+    return Column(
+      children: [
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: Icon(Icons.notifications_active,
+              color: Theme.of(context).colorScheme.primary),
+          title: const Text('Test Notifications'),
+          subtitle:
+              const Text('Send a test notification to verify functionality'),
+          trailing: ElevatedButton(
+            onPressed: _testNotifications,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              foregroundColor: Theme.of(context).colorScheme.onPrimary,
+            ),
+            child: const Text('Test'),
+          ),
         ),
-        child: const Text('Test'),
-      ),
+        const SizedBox(height: 8),
+        Padding(
+          padding: const EdgeInsets.only(left: 40),
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.inventory,
+                color: Theme.of(context).colorScheme.primary, size: 20),
+            title: const Text('Test Inventory Summary',
+                style: TextStyle(fontSize: 14)),
+            subtitle: const Text('Send inventory status notification',
+                style: TextStyle(fontSize: 12)),
+            trailing: ElevatedButton(
+              onPressed: _testInventorySummary,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.secondary,
+                foregroundColor: Theme.of(context).colorScheme.onSecondary,
+              ),
+              child: const Text('Test Summary'),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -351,12 +410,43 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _notificationsEnabled = value;
     });
 
+    if (value) {
+      // Start scheduled notifications when enabled
+      NotificationService.scheduleRecurringInventoryNotification();
+    } else {
+      // Cancel scheduled notifications when disabled
+      NotificationService.cancelScheduledNotifications();
+    }
+
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Notifications ${value ? 'enabled' : 'disabled'}'),
         ),
       );
+    }
+  }
+
+  Future<void> _onNotificationReminderChanged(String? value) async {
+    if (value != null && value != _notificationReminderInterval) {
+      await SettingsService.setNotificationReminderInterval(value);
+      setState(() {
+        _notificationReminderInterval = value;
+      });
+
+      // Reschedule notifications with new interval
+      if (_notificationsEnabled) {
+        await NotificationService.cancelScheduledNotifications();
+        await NotificationService.scheduleRecurringInventoryNotification();
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Reminder frequency set to $value'),
+          ),
+        );
+      }
     }
   }
 
@@ -667,6 +757,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Failed to send notification: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _testInventorySummary() async {
+    if (!_notificationsEnabled) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Notifications are disabled in settings'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    try {
+      await NotificationService.sendTestInventorySummary();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Inventory summary notification sent!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to send inventory summary: $e'),
           backgroundColor: Colors.red,
         ),
       );

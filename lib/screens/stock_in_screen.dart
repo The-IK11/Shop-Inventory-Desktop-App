@@ -106,7 +106,7 @@ class _StockInScreenState extends State<StockInScreen> {
   Future<void> _showAddProductDialog() async {
     final result = await showDialog<Product>(
       context: context,
-      builder: (context) => const AddProductDialog(),
+      builder: (context) => const AddProductDialog(handleInsertion: false),
     );
 
     if (result != null) {
@@ -138,6 +138,18 @@ class _StockInScreenState extends State<StockInScreen> {
 
     try {
       await _databaseService.updateProductQuantity(product.id!, newQuantity);
+
+      // Record sale history if quantity was reduced (change is negative)
+      if (change < 0) {
+        final quantitySold =
+            change.abs(); // Convert negative change to positive quantity sold
+        await _databaseService.recordSale(
+          productName: product.name,
+          category: product.category,
+          quantitySold: quantitySold,
+          notes: 'Stock reduced from inventory',
+        );
+      }
 
       // Update the product in our local lists without reloading everything
       setState(() {
@@ -236,7 +248,19 @@ class _StockInScreenState extends State<StockInScreen> {
     String selectedCategory = product.category;
     String selectedStatus = product.status;
 
-    final List<String> categories = ['Makina', 'Steel', 'Other'];
+    // Load categories from settings instead of using hardcoded list
+    final List<String> categories = await SettingsService.getCategories();
+
+    // If categories is empty, add a default "Other" category
+    if (categories.isEmpty) {
+      categories.add('Other');
+    }
+
+    // If the product's category is not in the available categories, add it
+    if (!categories.contains(selectedCategory)) {
+      categories.add(selectedCategory);
+    }
+
     final List<String> statuses = ['In Stock', 'Low Stock', 'Out of Stock'];
 
     final result = await showDialog<Map<String, dynamic>>(
@@ -482,20 +506,20 @@ class _StockInScreenState extends State<StockInScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: Theme.of(context).colorScheme.surface,
       body: Column(
         children: [
           // Header
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(24.0),
-            decoration: const BoxDecoration(
-              color: Colors.white,
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surface,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black12,
+                  color: Theme.of(context).colorScheme.shadow.withOpacity(0.1),
                   blurRadius: 4,
-                  offset: Offset(0, 2),
+                  offset: const Offset(0, 2),
                 ),
               ],
             ),
@@ -507,7 +531,6 @@ class _StockInScreenState extends State<StockInScreen> {
                   style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
-                    color: Colors.black87,
                   ),
                 ),
                 ElevatedButton.icon(
@@ -535,7 +558,7 @@ class _StockInScreenState extends State<StockInScreen> {
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(24.0),
-            color: Colors.white,
+            color: Theme.of(context).colorScheme.surface,
             child: Row(
               children: [
                 Expanded(
@@ -543,17 +566,24 @@ class _StockInScreenState extends State<StockInScreen> {
                     controller: _searchController,
                     decoration: InputDecoration(
                       hintText: 'Search...',
-                      prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                      prefixIcon: Icon(Icons.search,
+                          color:
+                              Theme.of(context).colorScheme.onSurfaceVariant),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(color: Colors.grey[300]!),
+                        borderSide: BorderSide(
+                            color: Theme.of(context).colorScheme.outline),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: Color(0xFF4A90E2)),
+                        borderSide: BorderSide(
+                            color: Theme.of(context).colorScheme.primary),
                       ),
                       filled: true,
-                      fillColor: Colors.grey[50],
+                      fillColor: Theme.of(context)
+                          .colorScheme
+                          .surfaceContainerHighest
+                          .withOpacity(0.5),
                     ),
                   ),
                 ),
@@ -562,9 +592,13 @@ class _StockInScreenState extends State<StockInScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey[300]!),
+                    border: Border.all(
+                        color: Theme.of(context).colorScheme.outline),
                     borderRadius: BorderRadius.circular(8),
-                    color: Colors.grey[50],
+                    color: Theme.of(context)
+                        .colorScheme
+                        .surfaceContainerHighest
+                        .withOpacity(0.5),
                   ),
                   child: DropdownButton<String>(
                     value: _selectedFilter,
@@ -594,13 +628,14 @@ class _StockInScreenState extends State<StockInScreen> {
             child: Container(
               margin: const EdgeInsets.all(24.0),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Theme.of(context).colorScheme.surface,
                 borderRadius: BorderRadius.circular(12),
-                boxShadow: const [
+                boxShadow: [
                   BoxShadow(
-                    color: Colors.black12,
+                    color:
+                        Theme.of(context).colorScheme.shadow.withOpacity(0.1),
                     blurRadius: 8,
-                    offset: Offset(0, 4),
+                    offset: const Offset(0, 4),
                   ),
                 ],
               ),
@@ -613,7 +648,10 @@ class _StockInScreenState extends State<StockInScreen> {
                       vertical: 16,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.grey[50],
+                      color: Theme.of(context)
+                          .colorScheme
+                          .surfaceContainerHighest
+                          .withOpacity(0.3),
                       borderRadius: const BorderRadius.only(
                         topLeft: Radius.circular(12),
                         topRight: Radius.circular(12),
@@ -627,7 +665,6 @@ class _StockInScreenState extends State<StockInScreen> {
                             'Product Name',
                             style: TextStyle(
                               fontWeight: FontWeight.w600,
-                              color: Colors.black87,
                             ),
                           ),
                         ),
@@ -637,7 +674,6 @@ class _StockInScreenState extends State<StockInScreen> {
                             'Category',
                             style: TextStyle(
                               fontWeight: FontWeight.w600,
-                              color: Colors.black87,
                             ),
                           ),
                         ),
@@ -647,7 +683,6 @@ class _StockInScreenState extends State<StockInScreen> {
                             'Quantity',
                             style: TextStyle(
                               fontWeight: FontWeight.w600,
-                              color: Colors.black87,
                             ),
                             textAlign: TextAlign.center,
                           ),
@@ -658,7 +693,6 @@ class _StockInScreenState extends State<StockInScreen> {
                             'Status',
                             style: TextStyle(
                               fontWeight: FontWeight.w600,
-                              color: Colors.black87,
                             ),
                             textAlign: TextAlign.center,
                           ),
@@ -669,7 +703,7 @@ class _StockInScreenState extends State<StockInScreen> {
                             'Last Updated',
                             style: TextStyle(
                               fontWeight: FontWeight.w600,
-                              color: Colors.black87,
+                              //  color: Colors.black87,
                             ),
                             textAlign: TextAlign.center,
                           ),

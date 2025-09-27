@@ -153,20 +153,20 @@ class _StockOutScreenState extends State<StockOutScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: Theme.of(context).colorScheme.surface,
       body: Column(
         children: [
           // Header
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(24.0),
-            decoration: const BoxDecoration(
-              color: Colors.white,
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surface,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black12,
+                  color: Theme.of(context).colorScheme.shadow.withOpacity(0.1),
                   blurRadius: 4,
-                  offset: Offset(0, 2),
+                  offset: const Offset(0, 2),
                 ),
               ],
             ),
@@ -181,14 +181,13 @@ class _StockOutScreenState extends State<StockOutScreen> {
                       style: TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.bold,
-                        color: Colors.black87,
                       ),
                     ),
                     Text(
                       'Products that are out of stock or have low inventory',
                       style: TextStyle(
                         fontSize: 14,
-                        color: Colors.grey[600],
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ],
@@ -216,22 +215,28 @@ class _StockOutScreenState extends State<StockOutScreen> {
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(24.0),
-            color: Colors.white,
+            color: Theme.of(context).colorScheme.surface,
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
                 hintText: 'Search stock out products...',
-                prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                prefixIcon: Icon(Icons.search,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: Colors.grey[300]!),
+                  borderSide:
+                      BorderSide(color: Theme.of(context).colorScheme.outline),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: Color(0xFF4A90E2)),
+                  borderSide:
+                      BorderSide(color: Theme.of(context).colorScheme.primary),
                 ),
                 filled: true,
-                fillColor: Colors.grey[50],
+                fillColor: Theme.of(context)
+                    .colorScheme
+                    .surfaceContainerHighest
+                    .withOpacity(0.5),
               ),
             ),
           ),
@@ -240,13 +245,14 @@ class _StockOutScreenState extends State<StockOutScreen> {
             child: Container(
               margin: const EdgeInsets.all(24.0),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Theme.of(context).colorScheme.surface,
                 borderRadius: BorderRadius.circular(12),
-                boxShadow: const [
+                boxShadow: [
                   BoxShadow(
-                    color: Colors.black12,
+                    color:
+                        Theme.of(context).colorScheme.shadow.withOpacity(0.1),
                     blurRadius: 8,
-                    offset: Offset(0, 4),
+                    offset: const Offset(0, 4),
                   ),
                 ],
               ),
@@ -259,7 +265,10 @@ class _StockOutScreenState extends State<StockOutScreen> {
                       vertical: 16,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.grey[50],
+                      color: Theme.of(context)
+                          .colorScheme
+                          .surfaceContainerHighest
+                          .withOpacity(0.3),
                       borderRadius: const BorderRadius.only(
                         topLeft: Radius.circular(12),
                         topRight: Radius.circular(12),
@@ -273,7 +282,6 @@ class _StockOutScreenState extends State<StockOutScreen> {
                             'Product Name',
                             style: TextStyle(
                               fontWeight: FontWeight.w600,
-                              color: Colors.black87,
                             ),
                           ),
                         ),
@@ -283,7 +291,6 @@ class _StockOutScreenState extends State<StockOutScreen> {
                             'Category',
                             style: TextStyle(
                               fontWeight: FontWeight.w600,
-                              color: Colors.black87,
                             ),
                           ),
                         ),
@@ -293,7 +300,6 @@ class _StockOutScreenState extends State<StockOutScreen> {
                             'Quantity',
                             style: TextStyle(
                               fontWeight: FontWeight.w600,
-                              color: Colors.black87,
                             ),
                             textAlign: TextAlign.center,
                           ),
@@ -304,7 +310,6 @@ class _StockOutScreenState extends State<StockOutScreen> {
                             'Status',
                             style: TextStyle(
                               fontWeight: FontWeight.w600,
-                              color: Colors.black87,
                             ),
                             textAlign: TextAlign.center,
                           ),
@@ -315,7 +320,6 @@ class _StockOutScreenState extends State<StockOutScreen> {
                             'Last Updated',
                             style: TextStyle(
                               fontWeight: FontWeight.w600,
-                              color: Colors.black87,
                             ),
                             textAlign: TextAlign.center,
                           ),

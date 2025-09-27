@@ -5,6 +5,7 @@ class Product {
   final int quantity;
   final String status;
   final DateTime lastUpdated;
+  final int? lowStockThreshold; // Optional individual low stock threshold
 
   Product({
     this.id,
@@ -13,6 +14,7 @@ class Product {
     required this.quantity,
     required this.status,
     required this.lastUpdated,
+    this.lowStockThreshold, // Optional parameter
   });
 
   // Convert Product to Map for database operations
@@ -24,6 +26,7 @@ class Product {
       'quantity': quantity,
       'status': status,
       'lastUpdated': lastUpdated.toIso8601String(),
+      'lowStockThreshold': lowStockThreshold,
     };
   }
 
@@ -36,6 +39,7 @@ class Product {
       quantity: map['quantity'],
       status: map['status'],
       lastUpdated: DateTime.parse(map['lastUpdated']),
+      lowStockThreshold: map['lowStockThreshold'],
     );
   }
 
@@ -47,6 +51,7 @@ class Product {
     int? quantity,
     String? status,
     DateTime? lastUpdated,
+    int? lowStockThreshold,
   }) {
     return Product(
       id: id ?? this.id,
@@ -55,12 +60,13 @@ class Product {
       quantity: quantity ?? this.quantity,
       status: status ?? this.status,
       lastUpdated: lastUpdated ?? this.lastUpdated,
+      lowStockThreshold: lowStockThreshold ?? this.lowStockThreshold,
     );
   }
 
   @override
   String toString() {
-    return 'Product{id: $id, name: $name, category: $category, quantity: $quantity, status: $status, lastUpdated: $lastUpdated}';
+    return 'Product{id: $id, name: $name, category: $category, quantity: $quantity, status: $status, lastUpdated: $lastUpdated, lowStockThreshold: $lowStockThreshold}';
   }
 
   @override
@@ -73,7 +79,8 @@ class Product {
           category == other.category &&
           quantity == other.quantity &&
           status == other.status &&
-          lastUpdated == other.lastUpdated;
+          lastUpdated == other.lastUpdated &&
+          lowStockThreshold == other.lowStockThreshold;
 
   @override
   int get hashCode =>
@@ -82,5 +89,6 @@ class Product {
       category.hashCode ^
       quantity.hashCode ^
       status.hashCode ^
-      lastUpdated.hashCode;
+      lastUpdated.hashCode ^
+      lowStockThreshold.hashCode;
 }
