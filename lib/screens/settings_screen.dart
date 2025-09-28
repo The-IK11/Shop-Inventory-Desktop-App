@@ -18,7 +18,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _notificationsEnabled = true;
   String _notificationReminderInterval =
       SettingsService.defaultNotificationReminder;
-  int _lowStockThreshold = SettingsService.defaultLowStockThreshold;
   List<String> _categories = [];
 
   bool _isLoading = true;
@@ -41,7 +40,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           await SettingsService.areNotificationsEnabled();
       final notificationReminderInterval =
           await SettingsService.getNotificationReminderInterval();
-      final lowStockThreshold = await SettingsService.getLowStockThreshold();
       final categories = await SettingsService.getCategories();
 
       setState(() {
@@ -49,7 +47,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _isDarkTheme = isDarkTheme;
         _notificationsEnabled = notificationsEnabled;
         _notificationReminderInterval = notificationReminderInterval;
-        _lowStockThreshold = lowStockThreshold;
         _categories = categories;
         _isLoading = false;
       });
@@ -107,8 +104,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _buildSection(
                     title: 'Inventory Settings',
                     children: [
-                      _buildLowStockThresholdSetting(),
-                      const SizedBox(height: 16),
                       _buildCategoryManagement(),
                     ],
                   ),
@@ -236,19 +231,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ],
           onChanged: _onNotificationReminderChanged,
         ),
-      ),
-    );
-  }
-
-  Widget _buildLowStockThresholdSetting() {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: const Icon(Icons.warning, color: Colors.orange),
-      title: const Text('Low Stock Threshold'),
-      subtitle: Text('Alert when products reach $_lowStockThreshold or below'),
-      trailing: IconButton(
-        icon: const Icon(Icons.edit),
-        onPressed: _editLowStockThreshold,
       ),
     );
   }
@@ -445,62 +427,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           SnackBar(
             content: Text('Reminder frequency set to $value'),
           ),
-        );
-      }
-    }
-  }
-
-  Future<void> _editLowStockThreshold() async {
-    final controller =
-        TextEditingController(text: _lowStockThreshold.toString());
-    final result = await showDialog<int>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Set Low Stock Threshold'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-                'Products will be marked as low stock when their quantity reaches this value or below.'),
-            const SizedBox(height: 16),
-            TextField(
-              controller: controller,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Threshold Quantity',
-                border: OutlineInputBorder(),
-                suffixText: 'items',
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final value = int.tryParse(controller.text);
-              if (value != null && value > 0) {
-                Navigator.pop(context, value);
-              }
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-
-    if (result != null) {
-      await SettingsService.setLowStockThreshold(result);
-      setState(() {
-        _lowStockThreshold = result;
-      });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Low stock threshold updated')),
         );
       }
     }
@@ -744,7 +670,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       await NotificationService.showLowStockNotification(
         productName: 'Test Product',
         currentQuantity: 3,
-        threshold: _lowStockThreshold,
+        threshold: 5, // Use a default value for testing
       );
 
       ScaffoldMessenger.of(context).showSnackBar(

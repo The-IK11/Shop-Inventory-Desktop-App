@@ -6,7 +6,6 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:path/path.dart';
 import '../models/product.dart';
 import '../models/sale_history.dart';
-import 'settings_service.dart';
 import 'notification_service.dart';
 
 class DatabaseService {
@@ -107,10 +106,10 @@ class DatabaseService {
     final db = await database;
     final result = await db.insert(_tableName, product.toMap());
 
-    // Check if the new product should trigger a notification
-    final threshold = await SettingsService.getLowStockThreshold();
-    await _checkAndSendNotifications(
-        product.name, threshold + 1, product.quantity, threshold);
+    // Check if the new product should trigger a notification using individual threshold
+    final effectiveThreshold = getEffectiveThreshold(product);
+    await _checkAndSendNotifications(product.name, effectiveThreshold + 1,
+        product.quantity, effectiveThreshold);
 
     return result;
   }
@@ -195,7 +194,7 @@ class DatabaseService {
     if (oldProductList.isNotEmpty) {
       final oldProduct = Product.fromMap(oldProductList.first);
       if (oldProduct.quantity != product.quantity) {
-        final threshold = await SettingsService.getLowStockThreshold();
+        final threshold = getEffectiveThreshold(product);
         await _checkAndSendNotifications(
             product.name, oldProduct.quantity, product.quantity, threshold);
       }
@@ -219,11 +218,11 @@ class DatabaseService {
 
     final product = Product.fromMap(productList.first);
     final oldQuantity = product.quantity;
-    final effectiveThreshold = await getEffectiveThreshold(product);
+    final effectiveThreshold = getEffectiveThreshold(product);
 
     // Automatically update status based on quantity and individual threshold
-    final newStatus = await getProductStatus(newQuantity,
-        customThreshold: effectiveThreshold);
+    final newStatus =
+        getProductStatus(newQuantity, customThreshold: effectiveThreshold);
 
     final result = await db.update(
       _tableName,
@@ -281,18 +280,19 @@ class DatabaseService {
     return Sqflite.firstIntValue(result) ?? 0;
   }
 
-  // Get low stock products (uses individual thresholds when available)
+  // Get low stock products (uses individual thresholds)
   Future<List<Product>> getLowStockProducts() async {
-    final globalThreshold = await SettingsService.getLowStockThreshold();
-
-    // Get all products and check them individually
+    // Get all products and check them individually using their own thresholds
     final allProducts = await getAllProducts();
     final lowStockProducts = <Product>[];
 
     for (final product in allProducts) {
-      final threshold = product.lowStockThreshold ?? globalThreshold;
-      if (product.quantity <= threshold && product.quantity > 0) {
-        lowStockProducts.add(product);
+      // Only check products that have individual low stock thresholds set
+      if (product.lowStockThreshold != null) {
+        if (product.quantity <= product.lowStockThreshold! &&
+            product.quantity > 0) {
+          lowStockProducts.add(product);
+        }
       }
     }
 
@@ -302,41 +302,31 @@ class DatabaseService {
     return lowStockProducts;
   }
 
-  // Get effective low stock threshold for a product (individual or global)
-  Future<int> getEffectiveThreshold(Product product) async {
-    return product.lowStockThreshold ??
-        await SettingsService.getLowStockThreshold();
+  // Get effective low stock threshold for a product (individual or default 10)
+  int getEffectiveThreshold(Product product) {
+    return product.lowStockThreshold ?? 10; // Default to 10 if not set
   }
 
-  // Get status based on quantity and threshold
-  Future<String> getProductStatus(int quantity, {int? customThreshold}) async {
-    final threshold =
-        customThreshold ?? await SettingsService.getLowStockThreshold();
-
+  // Get status based on quantity and individual threshold
+  String getProductStatus(int quantity, {int? customThreshold}) {
     if (quantity <= 0) {
       return 'Out of Stock';
-    } else if (quantity <= threshold) {
+    } else if (customThreshold != null && quantity <= customThreshold) {
       return 'Low Stock';
     } else {
       return 'In Stock';
     }
   }
 
-  // Recalculate all product statuses based on current quantity
+  // Recalculate all product statuses based on current quantity and individual thresholds
   Future<void> recalculateAllStatuses() async {
     final db = await database;
     final products = await getAllProducts();
-    final threshold = await SettingsService.getLowStockThreshold();
 
     for (final product in products) {
-      String newStatus;
-      if (product.quantity <= 0) {
-        newStatus = 'Out of Stock';
-      } else if (product.quantity <= threshold) {
-        newStatus = 'Low Stock';
-      } else {
-        newStatus = 'In Stock';
-      }
+      final threshold = getEffectiveThreshold(product);
+      final newStatus =
+          getProductStatus(product.quantity, customThreshold: threshold);
 
       if (newStatus != product.status) {
         await db.update(

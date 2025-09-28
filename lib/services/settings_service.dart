@@ -4,13 +4,11 @@ class SettingsService {
   static const String _shopNameKey = 'shop_name';
   static const String _themeKey = 'is_dark_theme';
   static const String _notificationsKey = 'notifications_enabled';
-  static const String _lowStockThresholdKey = 'low_stock_threshold';
   static const String _categoriesKey = 'categories';
   static const String _notificationReminderKey =
       'notification_reminder_interval';
 
   static const String defaultShopName = 'Shop Inventory';
-  static const int defaultLowStockThreshold = 10;
   static const String defaultNotificationReminder = 'Daily';
 
   // Shop Name
@@ -44,17 +42,6 @@ class SettingsService {
   static Future<void> setNotificationsEnabled(bool enabled) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_notificationsKey, enabled);
-  }
-
-  // Low Stock Threshold
-  static Future<int> getLowStockThreshold() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getInt(_lowStockThresholdKey) ?? defaultLowStockThreshold;
-  }
-
-  static Future<void> setLowStockThreshold(int threshold) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(_lowStockThresholdKey, threshold);
   }
 
   // Categories

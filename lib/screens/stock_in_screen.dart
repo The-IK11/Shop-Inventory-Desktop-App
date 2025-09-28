@@ -20,22 +20,12 @@ class _StockInScreenState extends State<StockInScreen> {
   bool _isLoading = true;
   String _selectedFilter =
       'All'; // Filter options: All, Low Stock First, High Stock First
-  int _lowStockThreshold =
-      10; // Default threshold, will be loaded from settings
 
   @override
   void initState() {
     super.initState();
-    _loadThreshold();
     _loadProducts();
     _searchController.addListener(_filterProducts);
-  }
-
-  Future<void> _loadThreshold() async {
-    final threshold = await SettingsService.getLowStockThreshold();
-    setState(() {
-      _lowStockThreshold = threshold;
-    });
   }
 
   @override
@@ -158,7 +148,7 @@ class _StockInScreenState extends State<StockInScreen> {
         if (productIndex != -1) {
           _products[productIndex] = _products[productIndex].copyWith(
             quantity: newQuantity,
-            status: _getNewStatus(newQuantity),
+            status: _getNewStatus(newQuantity, product),
             lastUpdated: DateTime.now(),
           );
         }
@@ -170,7 +160,7 @@ class _StockInScreenState extends State<StockInScreen> {
           _filteredProducts[filteredIndex] =
               _filteredProducts[filteredIndex].copyWith(
             quantity: newQuantity,
-            status: _getNewStatus(newQuantity),
+            status: _getNewStatus(newQuantity, product),
             lastUpdated: DateTime.now(),
           );
         }
@@ -185,10 +175,10 @@ class _StockInScreenState extends State<StockInScreen> {
   }
 
   // Helper method to determine status based on quantity
-  String _getNewStatus(int quantity) {
+  String _getNewStatus(int quantity, Product product) {
     if (quantity <= 0) {
       return 'Out of Stock';
-    } else if (quantity <= _lowStockThreshold) {
+    } else if (quantity <= (product.lowStockThreshold ?? 10)) {
       return 'Low Stock';
     } else {
       return 'In Stock';
@@ -245,6 +235,9 @@ class _StockInScreenState extends State<StockInScreen> {
         TextEditingController(text: product.name);
     final TextEditingController quantityController =
         TextEditingController(text: product.quantity.toString());
+    final TextEditingController lowStockThresholdController =
+        TextEditingController(
+            text: (product.lowStockThreshold ?? 10).toString());
     String selectedCategory = product.category;
     String selectedStatus = product.status;
 
@@ -405,6 +398,23 @@ class _StockInScreenState extends State<StockInScreen> {
                     });
                   },
                 ),
+                const SizedBox(height: 16),
+
+                // Low Stock Alert Field
+                TextField(
+                  controller: lowStockThresholdController,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: 'Low Stock Alert (Optional)',
+                    hintText: 'Default: 10',
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8)),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Color(0xFF4A90E2)),
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 32),
 
                 // Action Buttons
@@ -419,12 +429,15 @@ class _StockInScreenState extends State<StockInScreen> {
                     const SizedBox(width: 16),
                     ElevatedButton(
                       onPressed: () {
+                        final lowStockThreshold = int.tryParse(
+                            lowStockThresholdController.text.trim());
                         final updatedData = {
                           'name': nameController.text.trim(),
                           'category': selectedCategory,
                           'quantity':
                               int.tryParse(quantityController.text) ?? 0,
                           'status': selectedStatus,
+                          'lowStockThreshold': lowStockThreshold,
                         };
                         Navigator.of(context).pop(updatedData);
                       },
@@ -454,6 +467,7 @@ class _StockInScreenState extends State<StockInScreen> {
           category: result['category'],
           quantity: result['quantity'],
           status: result['status'],
+          lowStockThreshold: result['lowStockThreshold'],
           lastUpdated: DateTime.now(),
         );
 
@@ -730,8 +744,8 @@ class _StockInScreenState extends State<StockInScreen> {
                                 itemCount: _filteredProducts.length,
                                 itemBuilder: (context, index) {
                                   final product = _filteredProducts[index];
-                                  final isLowStock =
-                                      product.quantity <= _lowStockThreshold;
+                                  final isLowStock = product.quantity <=
+                                      (product.lowStockThreshold ?? 10);
 
                                   return InkWell(
                                     onTap: () =>
@@ -822,13 +836,15 @@ class _StockInScreenState extends State<StockInScreen> {
                                                 decoration: BoxDecoration(
                                                   color: _getStatusColor(
                                                       _getNewStatus(
-                                                          product.quantity)),
+                                                          product.quantity,
+                                                          product)),
                                                   borderRadius:
                                                       BorderRadius.circular(12),
                                                 ),
                                                 child: Text(
                                                   _getNewStatus(
-                                                      product.quantity),
+                                                      product.quantity,
+                                                      product),
                                                   style: const TextStyle(
                                                     color: Colors.white,
                                                     fontSize: 12,

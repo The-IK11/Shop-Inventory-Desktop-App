@@ -76,12 +76,20 @@ class _AddProductDialogState extends State<AddProductDialog> {
           await SettingsService.addCategory(_selectedCategory);
         }
 
+        // Parse low stock threshold (optional)
+        int? lowStockThreshold;
+        if (_lowStockThresholdController.text.trim().isNotEmpty) {
+          lowStockThreshold =
+              int.tryParse(_lowStockThresholdController.text.trim());
+        }
+
         final product = Product(
           name: _nameController.text.trim(),
           category: _selectedCategory.trim(),
           quantity: int.parse(_quantityController.text),
           status: _selectedStatus,
           lastUpdated: DateTime.now(),
+          lowStockThreshold: lowStockThreshold,
         );
 
         if (widget.handleInsertion) {
@@ -315,6 +323,40 @@ class _AddProductDialogState extends State<AddProductDialog> {
                           setState(() {
                             _selectedStatus = value!;
                           });
+                        },
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Low Stock Alert Field
+                      TextFormField(
+                        controller: _lowStockThresholdController,
+                        decoration: InputDecoration(
+                          labelText: 'Low Stock Alert (Optional)',
+                          hintText: 'Enter quantity for low stock warning',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide:
+                                const BorderSide(color: Color(0xFF4A90E2)),
+                          ),
+                          suffixIcon: const Icon(Icons.warning_amber,
+                              color: Colors.orange),
+                          helperText: 'Leave empty to use default alerting',
+                        ),
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly
+                        ],
+                        validator: (value) {
+                          if (value != null && value.trim().isNotEmpty) {
+                            final threshold = int.tryParse(value);
+                            if (threshold == null || threshold <= 0) {
+                              return 'Please enter a valid positive number';
+                            }
+                          }
+                          return null;
                         },
                       ),
                       const SizedBox(height: 32),
