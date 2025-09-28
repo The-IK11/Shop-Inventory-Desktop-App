@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:path/path.dart';
+import 'package:path_provider/path_provider.dart';
 import '../models/product.dart';
 import '../models/sale_history.dart';
 import 'notification_service.dart';
@@ -39,7 +40,35 @@ class DatabaseService {
 
   // Initialize database
   Future<Database> _initDatabase() async {
-    String path = join(await getDatabasesPath(), 'shop_inventory.db');
+    // Get appropriate directory for user data
+    String path;
+
+    if (Platform.isWindows) {
+      // Use user's AppData/Local directory for installed applications
+      final String userProfile = Platform.environment['USERPROFILE'] ?? '';
+      final String appDataLocal =
+          join(userProfile, 'AppData', 'Local', 'ShopInventory');
+
+      // Create directory if it doesn't exist
+      final Directory appDir = Directory(appDataLocal);
+      if (!await appDir.exists()) {
+        await appDir.create(recursive: true);
+      }
+
+      path = join(appDataLocal, 'shop_inventory.db');
+    } else {
+      // Fallback to documents directory for other platforms
+      final documentsDir = await getApplicationDocumentsDirectory();
+      final String appDir = join(documentsDir.path, 'ShopInventory');
+
+      // Create directory if it doesn't exist
+      final Directory appDirectory = Directory(appDir);
+      if (!await appDirectory.exists()) {
+        await appDirectory.create(recursive: true);
+      }
+
+      path = join(appDir, 'shop_inventory.db');
+    }
 
     return await openDatabase(
       path,
@@ -47,6 +76,20 @@ class DatabaseService {
       onCreate: _createDatabase,
       onUpgrade: _onUpgrade,
     );
+  }
+
+  // Get the database file path for user reference
+  static Future<String> getDatabasePath() async {
+    if (Platform.isWindows) {
+      final String userProfile = Platform.environment['USERPROFILE'] ?? '';
+      final String appDataLocal =
+          join(userProfile, 'AppData', 'Local', 'ShopInventory');
+      return join(appDataLocal, 'shop_inventory.db');
+    } else {
+      final documentsDir = await getApplicationDocumentsDirectory();
+      final String appDir = join(documentsDir.path, 'ShopInventory');
+      return join(appDir, 'shop_inventory.db');
+    }
   }
 
   // Create database tables
