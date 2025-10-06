@@ -462,10 +462,24 @@ class _StockInScreenState extends State<StockInScreen> {
 
     if (result != null) {
       try {
+        final int newQuantity = result['quantity'] ?? product.quantity;
+        final int oldQuantity = product.quantity;
+
+        // If quantity decreased, record the sold amount
+        if (newQuantity < oldQuantity) {
+          final int quantitySold = oldQuantity - newQuantity;
+          await _databaseService.recordSale(
+            productName: product.name,
+            category: product.category,
+            quantitySold: quantitySold,
+            notes: 'Adjusted via edit dialog',
+          );
+        }
+
         final updatedProduct = product.copyWith(
           name: result['name'],
           category: result['category'],
-          quantity: result['quantity'],
+          quantity: newQuantity,
           status: result['status'],
           lowStockThreshold: result['lowStockThreshold'],
           lastUpdated: DateTime.now(),
